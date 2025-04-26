@@ -1,3 +1,4 @@
+//Agnivesh PS
 import 'dart:io';
 
 /// A program to generate multiplication tables and compute their sum.
