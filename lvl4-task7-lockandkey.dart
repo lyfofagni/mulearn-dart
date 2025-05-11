@@ -1,93 +1,89 @@
-//Agnivesh PS
+import 'dart:io';
 import 'dart:math';
+import 'package:args/args.dart';
 
-/// A utility class for password operations, including validation and generation.
-class PasswordUtils {
-  /// Validates the strength of a password based on predefined criteria.
-  ///
-  /// Returns `true` if the password meets the minimum length, contains at
-  /// least one uppercase letter, one lowercase letter, one digit, and one
-  /// special character. Otherwise, returns `false`.
-  static bool validatePassword(String password) {
-    if (password.length < 8) {
-      return false; // Minimum length not met
+class PasswordManager {
+  static final RegExp _lowerCase = RegExp(r'[a-z]');
+  static final RegExp _upperCase = RegExp(r'[A-Z]');
+  static final RegExp _number = RegExp(r'[0-9]');
+  static final RegExp _specialChar = RegExp(r'[!@#\$%^&*()_+\[\]{}]');
+
+  static String validatePasswordStrength(String password) {
+    bool hasLower = _lowerCase.hasMatch(password);
+    bool hasUpper = _upperCase.hasMatch(password);
+    bool hasNumber = _number.hasMatch(password);
+    bool hasSpecial = _specialChar.hasMatch(password);
+
+    int length = password.length;
+
+    if (length >= 8 && hasLower && hasUpper && hasNumber && hasSpecial) {
+      return "Strong";
+    } else if (length >= 6 && hasLower && hasUpper && hasNumber) {
+      return "Intermediate";
+    } else {
+      return "Low";
     }
-    if (!password.contains(RegExp(r'[A-Z]'))) {
-      return false; // No uppercase letter
-    }
-    if (!password.contains(RegExp(r'[a-z]'))) {
-      return false; // No lowercase letter
-    }
-    if (!password.contains(RegExp(r'[0-9]'))) {
-      return false; // No digit
-    }
-    if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-      return false; // No special character
-    }
-    return true; // All criteria met
   }
 
-  /// Generates a strong password with a mix of uppercase, lowercase, digits,
-  /// and special characters.
-  ///
-  /// The length of the password is determined by the [length] parameter.  A
-  /// longer password is more secure.
-  static String generateStrongPassword({int length = 16}) {
-    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const digits = '0123456789';
-    const specialChars = r'!@#$%^&*(),.?":{}|<>';
+  static String generatePassword(String level) {
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    const specials = '!@#\$%^&*()_+[]{}';
 
-    final allChars = uppercase + lowercase + digits + specialChars;
-    final random = Random.secure();
+    String chars = '';
+    int length = 8;
 
-    return List.generate(length, (index) => allChars[random.nextInt(allChars.length)]).join();
-  }
+    switch (level.toLowerCase()) {
+      case 'strong':
+        chars = lower + upper + numbers + specials;
+        length = 12;
+        break;
+      case 'intermediate':
+        chars = lower + upper + numbers;
+        length = 10;
+        break;
+      case 'low':
+        chars = lower;
+        length = 6;
+        break;
+      default:
+        throw ArgumentError('Invalid level. Choose strong, intermediate, or low.');
+    }
 
-  /// Generates an intermediate password with a mix of lowercase, digits and
-  /// some special characters.
-  ///
-  /// The length of the password is determined by the [length] parameter.
-  static String generateIntermediatePassword({int length = 12}) {
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const digits = '0123456789';
-    const specialChars = r'!@#';
-
-    final allChars = lowercase + digits + specialChars;
-    final random = Random.secure();
-
-    return List.generate(length, (index) => allChars[random.nextInt(allChars.length)]).join();
-  }
-
-  /// Generates a low password with only lowercase and digits. This type of
-  /// password is not recommended for sensitive data.
-  ///
-  /// The length of the password is determined by the [length] parameter.
-  static String generateLowPassword({int length = 8}) {
-    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    const digits = '0123456789';
-
-    final allChars = lowercase + digits;
-    final random = Random.secure();
-
-    return List.generate(length, (index) => allChars[random.nextInt(allChars.length)]).join();
+    final rand = Random();
+    return List.generate(length, (_) => chars[rand.nextInt(chars.length)]).join();
   }
 }
 
-void main() {
-  // Example Usage
-  String strongPassword = PasswordUtils.generateStrongPassword();
-  print('Strong Password: $strongPassword');
-  print('Is Strong Password valid? ${PasswordUtils.validatePassword(strongPassword)}');
+void main(List<String> arguments) {
+  final parser = ArgParser()
+    ..addOption('validate', abbr: 'v', help: 'Validate password strength')
+    ..addOption('generate', abbr: 'g', help: 'Generate a password with level (strong, intermediate, low)')
+    ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage');
 
-  String intermediatePassword = PasswordUtils.generateIntermediatePassword();
-  print('Intermediate Password: $intermediatePassword');
-  print('Is Intermediate Password valid? ${PasswordUtils.validatePassword(intermediatePassword)}');
+  final argResults = parser.parse(arguments);
 
-  String lowPassword = PasswordUtils.generateLowPassword();
-  print('Low Password: $lowPassword');
-  print('Is Low Password valid? ${PasswordUtils.validatePassword(lowPassword)}');
+  if (argResults['help'] as bool || arguments.isEmpty) {
+    print('Password Manager Utility');
+    print(parser.usage);
+    exit(0);
+  }
 
-  String customPassword = 'MyPassword123!';
-  print('Is "$customPassword" valid? ${PasswordUtils.validatePassword(customPassword)}');
+  if (argResults.wasParsed('validate')) {
+    final input = argResults['validate'] as String;
+    final strength = PasswordManager.validatePasswordStrength(input);
+    print('Password Strength: $strength');
+  }
+
+  if (argResults.wasParsed('generate')) {
+    final level = argResults['generate'] as String;
+    try {
+      final password = PasswordManager.generatePassword(level);
+      print('Generated Password ($level): $password');
+    } catch (e) {
+      stderr.writeln('Error: ${e.toString()}');
+      exit(1);
+    }
+  }
 }
